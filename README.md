@@ -86,12 +86,11 @@ As with every irreversible payment, verify the recipient, currency, amount and r
 Foundry is the only development dependency; the app itself is one static HTML file with no external assets.
 
 ```bash
-export PATH="$HOME/.local/share/arc-miniapp/foundry/bin:$PATH"
+# Foundry (https://getfoundry.sh) on PATH
 forge build
 forge test
 
-CHROME="$HOME/.local/share/arc-miniapp/chrome/chrome-headless-shell-linux64/chrome-headless-shell" \
-FOUNDRY_BIN="$HOME/.local/share/arc-miniapp/foundry/bin" \
+CHROME=/path/to/chrome-or-chromium \
 ./e2e.sh
 ```
 

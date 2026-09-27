@@ -2,10 +2,11 @@
 # Signed EURC authorization -> direct PayLink call -> browser status checks on local Arc chain id.
 set -euo pipefail
 
-FOUNDRY_DIR=${FOUNDRY_BIN:-$HOME/.local/share/arc-miniapp/foundry/bin}
-export PATH="$FOUNDRY_DIR:$PATH"
-CHROME_BIN=${CHROME:-$HOME/.local/share/arc-miniapp/chrome/chrome-headless-shell-linux64/chrome-headless-shell}
-CHROME_LIB=$(dirname "$CHROME_BIN")/../lib
+# Needs Foundry (anvil, forge, cast) and a Chrome or Chromium. FOUNDRY_BIN and CHROME override what is on PATH.
+if [ -n "${FOUNDRY_BIN:-}" ]; then export PATH="$FOUNDRY_BIN:$PATH"; fi
+CHROME_BIN=${CHROME:-$(command -v chrome-headless-shell || command -v chromium || command -v google-chrome || true)}
+[ -n "$CHROME_BIN" ] || { echo "set CHROME to a Chrome or Chromium binary" >&2; exit 2; }
+CHROME_LIB=$(dirname "$CHROME_BIN")/../lib  # bundled libraries of a standalone chrome-headless-shell, if present
 WORKTREE=$(cd "$(dirname "$0")" && pwd)
 TEMP_DIR=$(mktemp -d)
 RPC=http://127.0.0.1:18545
