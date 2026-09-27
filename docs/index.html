@@ -1,0 +1,1179 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Create and pay USDC payment request links on the Arc blockchain.">
+  <title>PayLink on Arc</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f5f7fa;
+      --surface: #ffffff;
+      --text: #172033;
+      --muted: #5f697c;
+      --border: #d8dde7;
+      --primary: #174ea6;
+      --primary-hover: #123e84;
+      --primary-text: #ffffff;
+      --secondary-bg: #eef2f8;
+      --secondary-hover: #e2e8f2;
+      --danger: #a52222;
+      --danger-bg: #fff0f0;
+      --success: #176b3a;
+      --success-bg: #edf9f1;
+      --notice: #775c00;
+      --notice-bg: #fff8dc;
+      --focus: #4c8bf5;
+      --shadow: 0 12px 35px rgba(31, 42, 68, 0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #10141c;
+        --surface: #171d28;
+        --text: #edf1f7;
+        --muted: #aeb7c7;
+        --border: #343d4c;
+        --primary: #78a9ff;
+        --primary-hover: #9bbfff;
+        --primary-text: #09101d;
+        --secondary-bg: #252d3a;
+        --secondary-hover: #303a4a;
+        --danger: #ff9a9a;
+        --danger-bg: #391f24;
+        --success: #8bddaa;
+        --success-bg: #183326;
+        --notice: #f2d472;
+        --notice-bg: #352f19;
+        --focus: #8bb6ff;
+        --shadow: none;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-width: 280px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    a {
+      color: var(--primary);
+      overflow-wrap: anywhere;
+    }
+
+    a:hover {
+      text-decoration-thickness: 2px;
+    }
+
+    button,
+    input,
+    textarea {
+      font: inherit;
+    }
+
+    button,
+    input,
+    textarea,
+    a {
+      border-radius: 0.45rem;
+    }
+
+    :focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 3px;
+    }
+
+    .page {
+      width: min(100% - 2rem, 46rem);
+      margin: 0 auto;
+    }
+
+    header {
+      padding: 2.5rem 0 1.5rem;
+    }
+
+    h1,
+    h2 {
+      line-height: 1.2;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 9vw, 3rem);
+      letter-spacing: -0.04em;
+    }
+
+    header p {
+      max-width: 40rem;
+      margin: 0.7rem 0 0;
+      color: var(--muted);
+      font-size: 1.05rem;
+    }
+
+    main {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .card {
+      padding: 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: 0.8rem;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .card h2 {
+      margin: 0 0 1rem;
+      font-size: 1.3rem;
+    }
+
+    .field {
+      margin-bottom: 1rem;
+    }
+
+    label,
+    .label {
+      display: block;
+      margin-bottom: 0.35rem;
+      font-weight: 650;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    textarea {
+      min-height: 6rem;
+      resize: vertical;
+    }
+
+    input[readonly] {
+      background: var(--secondary-bg);
+    }
+
+    .help,
+    .counter,
+    .muted {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .counter {
+      margin: 0.35rem 0 0;
+      text-align: right;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      align-items: center;
+    }
+
+    button,
+    .button-link {
+      display: inline-flex;
+      min-height: 2.75rem;
+      align-items: center;
+      justify-content: center;
+      padding: 0.65rem 1rem;
+      border: 1px solid transparent;
+      border-radius: 0.5rem;
+      background: var(--primary);
+      color: var(--primary-text);
+      cursor: pointer;
+      font-weight: 700;
+      line-height: 1.2;
+      text-decoration: none;
+    }
+
+    button:hover,
+    .button-link:hover {
+      background: var(--primary-hover);
+    }
+
+    button.secondary,
+    .button-link.secondary {
+      border-color: var(--border);
+      background: var(--secondary-bg);
+      color: var(--text);
+    }
+
+    button.secondary:hover,
+    .button-link.secondary:hover {
+      background: var(--secondary-hover);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .result-row {
+      display: grid;
+      gap: 0.65rem;
+    }
+
+    @media (min-width: 38rem) {
+      .result-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: end;
+      }
+    }
+
+    .message {
+      margin: 1rem 0 0;
+      padding: 0.85rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 0.55rem;
+      overflow-wrap: anywhere;
+    }
+
+    .message:empty {
+      display: none;
+    }
+
+    .message.info {
+      color: var(--text);
+      background: var(--secondary-bg);
+    }
+
+    .message.error {
+      color: var(--danger);
+      background: var(--danger-bg);
+    }
+
+    .message.success {
+      color: var(--success);
+      background: var(--success-bg);
+    }
+
+    .message.notice {
+      color: var(--notice);
+      background: var(--notice-bg);
+    }
+
+    .details {
+      display: grid;
+      gap: 0.9rem;
+      margin: 0;
+    }
+
+    .details div {
+      min-width: 0;
+    }
+
+    .details dt {
+      margin-bottom: 0.15rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .details dd {
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .amount {
+      font-size: 1.65rem;
+      font-weight: 750;
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-size: 0.93rem;
+    }
+
+    ol {
+      margin-bottom: 0;
+      padding-left: 1.4rem;
+    }
+
+    li + li {
+      margin-top: 0.45rem;
+    }
+
+    .warning {
+      margin: 1rem 0 0;
+      padding-left: 0.9rem;
+      border-left: 4px solid var(--notice);
+      font-weight: 650;
+    }
+
+    footer {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem 1rem;
+      padding: 1.5rem 0 2.5rem;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>PayLink on Arc</h1>
+      <p>Ask for USDC with a link. The payer pays in one transaction; gas is paid in USDC too.</p>
+    </header>
+
+    <main>
+      <section id="create-section" class="card" hidden>
+        <h2>Create a payment request</h2>
+        <form id="create-form" novalidate>
+          <div class="field">
+            <label for="recipient">Recipient address</label>
+            <input id="recipient" name="recipient" type="text" inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="0x…" required aria-describedby="recipient-help">
+            <div id="recipient-help" class="help">The Arc address that will receive the payment.</div>
+          </div>
+
+          <div class="field">
+            <label for="amount">Amount in USDC</label>
+            <input id="amount" name="amount" type="text" inputmode="decimal" autocomplete="off" placeholder="12.50" required aria-describedby="amount-help">
+            <div id="amount-help" class="help">Positive amount, with no more than 6 decimal places.</div>
+          </div>
+
+          <div class="field">
+            <label for="memo">Memo <span class="muted">(optional)</span></label>
+            <textarea id="memo" name="memo" maxlength="140" aria-describedby="memo-counter"></textarea>
+            <p id="memo-counter" class="counter">0 / 140 UTF-8 bytes</p>
+          </div>
+
+          <button type="submit">Create link</button>
+          <div id="create-status" class="message" role="status" aria-live="polite"></div>
+        </form>
+
+        <div id="link-result" hidden>
+          <div class="result-row">
+            <div>
+              <label for="generated-link">Payment request link</label>
+              <input id="generated-link" type="text" readonly>
+            </div>
+            <button id="copy-button" type="button" class="secondary">Copy</button>
+          </div>
+          <div class="actions" style="margin-top: 0.8rem;">
+            <a id="open-request" class="button-link" href="#">Open request</a>
+          </div>
+          <div id="copy-status" class="message" role="status" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section id="request-section" class="card" hidden>
+        <h2>Payment request</h2>
+        <div id="request-content" hidden>
+          <dl class="details">
+            <div>
+              <dt>Amount</dt>
+              <dd id="request-amount" class="amount"></dd>
+            </div>
+            <div>
+              <dt>Recipient</dt>
+              <dd id="request-recipient" class="mono"></dd>
+            </div>
+            <div>
+              <dt>Memo</dt>
+              <dd id="request-memo"></dd>
+            </div>
+            <div>
+              <dt>Network</dt>
+              <dd id="request-network"></dd>
+            </div>
+          </dl>
+
+          <div id="deployment-notice" class="message notice" hidden></div>
+
+          <div class="actions" style="margin-top: 1.2rem;">
+            <button id="pay-button" type="button">Pay with wallet</button>
+            <button id="status-button" type="button" class="secondary">Check status</button>
+          </div>
+
+          <div id="payment-status" class="message" role="status" aria-live="polite"></div>
+          <div id="chain-status" class="message" role="status" aria-live="polite"></div>
+        </div>
+
+        <div id="invalid-request" hidden>
+          <div id="invalid-message" class="message error" role="alert"></div>
+          <div class="actions" style="margin-top: 1rem;">
+            <a id="create-link" class="button-link secondary" href="./">Create a request</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>How it works</h2>
+        <ol>
+          <li>Create a request with a recipient, amount, and optional memo.</li>
+          <li>Share the generated link with the payer.</li>
+          <li>The payer reviews it and sends USDC directly from a compatible wallet.</li>
+        </ol>
+        <p class="warning">Payments on a blockchain are final. Check the recipient address before paying.</p>
+      </section>
+    </main>
+
+    <footer>
+      <a id="repo-link" href="./">Open source</a>
+      <a id="contract-link" href="#">Contract address</a>
+      <span>Not affiliated with Circle or Arc.</span>
+    </footer>
+  </div>
+
+  <script>
+    const CONFIG = {
+      mainnet: {
+        chainId: 5042,
+        chainIdHex: "0x13b2",
+        rpc: "https://rpc.mainnet.arc.io",
+        explorer: "https://explorer.arc.io",
+        PAYLINK_ADDRESS: "0x0000000000000000000000000000000000000000",
+        name: "Arc"
+      },
+      testnet: {
+        chainId: 5042002,
+        chainIdHex: "0x4cef52",
+        rpc: "https://rpc.testnet.arc.io",
+        explorer: "https://explorer.testnet.arc.io",
+        PAYLINK_ADDRESS: "0x0000000000000000000000000000000000000000",
+        name: "Arc Testnet"
+      }
+    };
+
+    const REPO_URL = "./";
+    const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+    const PAY_SELECTOR = "0x7798f218";
+    const PAID_BLOCK_SELECTOR = "0x3a733368"; // paidBlock(bytes32,address,uint256,string)
+    const PAID_TOPIC = "0x5585761eb0d490286043f14a55f7434404597af8de0e8d4bf3ab13dc6dac4bbc";
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder("utf-8", { fatal: true });
+    const params = new URLSearchParams(window.location.search);
+    const networkKey = params.get("net") === "testnet" ? "testnet" : "mainnet";
+    const network = CONFIG[networkKey];
+
+    const createSection = document.getElementById("create-section");
+    const requestSection = document.getElementById("request-section");
+    const createForm = document.getElementById("create-form");
+    const recipientInput = document.getElementById("recipient");
+    const amountInput = document.getElementById("amount");
+    const memoInput = document.getElementById("memo");
+    const memoCounter = document.getElementById("memo-counter");
+    const createStatus = document.getElementById("create-status");
+    const linkResult = document.getElementById("link-result");
+    const generatedLink = document.getElementById("generated-link");
+    const copyButton = document.getElementById("copy-button");
+    const copyStatus = document.getElementById("copy-status");
+    const openRequest = document.getElementById("open-request");
+    const requestContent = document.getElementById("request-content");
+    const invalidRequest = document.getElementById("invalid-request");
+    const invalidMessage = document.getElementById("invalid-message");
+    const createLink = document.getElementById("create-link");
+    const requestAmount = document.getElementById("request-amount");
+    const requestRecipient = document.getElementById("request-recipient");
+    const requestMemo = document.getElementById("request-memo");
+    const requestNetwork = document.getElementById("request-network");
+    const deploymentNotice = document.getElementById("deployment-notice");
+    const payButton = document.getElementById("pay-button");
+    const statusButton = document.getElementById("status-button");
+    const paymentStatus = document.getElementById("payment-status");
+    const chainStatus = document.getElementById("chain-status");
+    const repoLink = document.getElementById("repo-link");
+    const contractLink = document.getElementById("contract-link");
+
+    let currentRequest = null;
+    let pollToken = 0;
+
+    function setMessage(element, message, kind) {
+      element.textContent = message;
+      element.className = "message" + (kind ? " " + kind : "");
+    }
+
+    function utf8Length(value) {
+      return encoder.encode(value).length;
+    }
+
+    function isAddress(value) {
+      return /^0x[0-9a-fA-F]{40}$/.test(value);
+    }
+
+    function isNonZeroAddress(value) {
+      return isAddress(value) && value.toLowerCase() !== ZERO_ADDRESS;
+    }
+
+    function isId(value) {
+      return /^0x[0-9a-fA-F]{64}$/.test(value);
+    }
+
+    function amountToWei(value) {
+      if (typeof value !== "string" || !/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(value)) {
+        throw new Error("Enter a positive decimal amount with at most 6 decimal places.");
+      }
+
+      const parts = value.split(".");
+      const whole = BigInt(parts[0]);
+      const fractionText = (parts[1] || "").padEnd(18, "0");
+      const wei = whole * 1000000000000000000n + BigInt(fractionText || "0");
+
+      if (wei <= 0n) {
+        throw new Error("The amount must be greater than zero.");
+      }
+
+      return wei;
+    }
+
+    function normalizeAmount(value) {
+      const parts = value.split(".");
+      let whole = parts[0].replace(/^0+(?=\d)/, "");
+      let fraction = parts[1] || "";
+      fraction = fraction.replace(/0+$/, "");
+      if (whole === "") {
+        whole = "0";
+      }
+      return fraction ? whole + "." + fraction : whole;
+    }
+
+    function weiToAmount(value) {
+      const wei = typeof value === "bigint" ? value : BigInt(value);
+      const whole = wei / 1000000000000000000n;
+      const fraction = (wei % 1000000000000000000n)
+        .toString()
+        .padStart(18, "0")
+        .replace(/0+$/, "");
+      return fraction ? whole.toString() + "." + fraction : whole.toString();
+    }
+
+    function toWord(value) {
+      const hex = BigInt(value).toString(16);
+      if (hex.length > 64) {
+        throw new Error("ABI value is too large.");
+      }
+      return hex.padStart(64, "0");
+    }
+
+    function bytesToHex(bytes) {
+      let output = "";
+      for (const byte of bytes) {
+        output += byte.toString(16).padStart(2, "0");
+      }
+      return output;
+    }
+
+    function encodePay(id, recipient, memo) {
+      if (!isId(id)) {
+        throw new Error("Invalid request ID.");
+      }
+      if (!isNonZeroAddress(recipient)) {
+        throw new Error("Invalid recipient address.");
+      }
+
+      const memoBytes = encoder.encode(memo);
+      if (memoBytes.length > 140) {
+        throw new Error("The memo exceeds 140 UTF-8 bytes.");
+      }
+
+      const idWord = id.slice(2).toLowerCase();
+      const recipientWord = recipient.slice(2).toLowerCase().padStart(64, "0");
+      const offsetWord = toWord(96);
+      const lengthWord = toWord(memoBytes.length);
+      const memoHex = bytesToHex(memoBytes);
+      const paddedMemoLength = Math.ceil(memoHex.length / 64) * 64;
+      const paddedMemo = memoHex.padEnd(paddedMemoLength, "0");
+
+      return PAY_SELECTOR + idWord + recipientWord + offsetWord + lengthWord + paddedMemo;
+    }
+
+    function encodePaidBlock(id, recipient, wei, memo) {
+      if (!isId(id) || !isNonZeroAddress(recipient)) {
+        throw new Error("Invalid request.");
+      }
+      const memoHex = bytesToHex(encoder.encode(memo));
+      const paddedMemo = memoHex.padEnd(Math.ceil(memoHex.length / 64) * 64, "0");
+      return PAID_BLOCK_SELECTOR + id.slice(2).toLowerCase() + recipient.slice(2).toLowerCase().padStart(64, "0") +
+        toWord(wei) + toWord(128) + toWord(memoHex.length / 2) + paddedMemo;
+    }
+
+    function randomId() {
+      const bytes = new Uint8Array(32);
+      crypto.getRandomValues(bytes);
+      return "0x" + bytesToHex(bytes);
+    }
+
+    function hexQuantity(value) {
+      return "0x" + BigInt(value).toString(16);
+    }
+
+    function readableError(error) {
+      if (error && (error.code === 4001 || error.code === "ACTION_REJECTED")) {
+        return "The request was rejected in the wallet.";
+      }
+      if (error && typeof error.message === "string" && error.message.trim()) {
+        return error.message.trim();
+      }
+      return "An unexpected error occurred.";
+    }
+
+    async function rpc(method, rpcParams) {
+      const response = await fetch(network.rpc, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: Date.now(),
+          method: method,
+          params: rpcParams
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("RPC request failed with HTTP " + response.status + ".");
+      }
+
+      const payload = await response.json();
+      if (payload.error) {
+        throw new Error(payload.error.message || "The RPC returned an error.");
+      }
+      return payload.result;
+    }
+
+    function parseLog(log) {
+      if (!log || !Array.isArray(log.topics) || log.topics.length < 4) {
+        throw new Error("Malformed payment log.");
+      }
+      if (typeof log.data !== "string" || !/^0x[0-9a-fA-F]*$/.test(log.data)) {
+        throw new Error("Malformed payment log data.");
+      }
+
+      const payerTopic = log.topics[2];
+      const recipientTopic = log.topics[3];
+      if (!/^0x[0-9a-fA-F]{64}$/.test(payerTopic) || !/^0x[0-9a-fA-F]{64}$/.test(recipientTopic)) {
+        throw new Error("Malformed indexed payment fields.");
+      }
+
+      const data = log.data.slice(2);
+      if (data.length < 128 || data.length % 64 !== 0) {
+        throw new Error("Malformed payment data.");
+      }
+
+      const amount = BigInt("0x" + data.slice(0, 64));
+      const offset = Number(BigInt("0x" + data.slice(64, 128)));
+      if (!Number.isSafeInteger(offset) || offset < 0 || offset % 32 !== 0) {
+        throw new Error("Malformed memo offset.");
+      }
+
+      const lengthStart = offset * 2;
+      if (lengthStart + 64 > data.length) {
+        throw new Error("Memo offset is outside the log data.");
+      }
+
+      const memoLength = Number(BigInt("0x" + data.slice(lengthStart, lengthStart + 64)));
+      if (!Number.isSafeInteger(memoLength) || memoLength < 0) {
+        throw new Error("Malformed memo length.");
+      }
+
+      const memoStart = lengthStart + 64;
+      const memoEnd = memoStart + memoLength * 2;
+      if (memoEnd > data.length) {
+        throw new Error("Memo extends outside the log data.");
+      }
+
+      const memoBytes = new Uint8Array(memoLength);
+      for (let index = 0; index < memoLength; index += 1) {
+        memoBytes[index] = parseInt(data.slice(memoStart + index * 2, memoStart + index * 2 + 2), 16);
+      }
+
+      return {
+        payer: "0x" + payerTopic.slice(-40),
+        recipient: "0x" + recipientTopic.slice(-40),
+        amount: amount,
+        memo: decoder.decode(memoBytes),
+        transactionHash: typeof log.transactionHash === "string" ? log.transactionHash : "",
+        blockNumber: typeof log.blockNumber === "string" ? BigInt(log.blockNumber) : null
+      };
+    }
+
+    function appendTextLine(container, label, value) {
+      const line = document.createElement("div");
+      const strong = document.createElement("strong");
+      strong.textContent = label;
+      line.appendChild(strong);
+      line.appendChild(document.createTextNode(value));
+      container.appendChild(line);
+    }
+
+    function renderPaid(payment) {
+      chainStatus.textContent = "";
+      chainStatus.className = "message success";
+
+      const heading = document.createElement("strong");
+      heading.textContent = "Paid";
+      chainStatus.appendChild(heading);
+
+      if (payment.payer) {
+        appendTextLine(chainStatus, "Payer: ", payment.payer);
+      }
+      appendTextLine(chainStatus, "Amount: ", weiToAmount(payment.amount) + " USDC");
+
+      if (payment.blockNumber !== null) {
+        appendTextLine(chainStatus, "Block: ", payment.blockNumber.toString());
+      }
+
+      if (/^0x[0-9a-fA-F]{64}$/.test(payment.transactionHash)) {
+        const line = document.createElement("div");
+        const link = document.createElement("a");
+        link.href = network.explorer + "/tx/" + payment.transactionHash;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = "View transaction";
+        line.appendChild(link);
+        chainStatus.appendChild(line);
+      }
+    }
+
+    async function checkStatus(options) {
+      const settings = options || {};
+      if (!currentRequest) {
+        return false;
+      }
+      if (network.PAYLINK_ADDRESS.toLowerCase() === ZERO_ADDRESS) {
+        setMessage(chainStatus, "Status is unavailable because the contract is not deployed on this network yet.", "notice");
+        return false;
+      }
+
+      statusButton.disabled = true;
+      if (!settings.quiet) {
+        setMessage(chainStatus, "Checking the blockchain…", "info");
+      }
+
+      try {
+        // One call: the contract remembers the block of the first payment that matches this request exactly.
+        const result = await rpc("eth_call", [{
+          to: network.PAYLINK_ADDRESS,
+          data: encodePaidBlock(currentRequest.id, currentRequest.to, currentRequest.wei, currentRequest.memo)
+        }, "latest"]);
+        if (typeof result !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(result)) {
+          throw new Error("The RPC returned an invalid response.");
+        }
+        const paidAt = BigInt(result);
+
+        if (paidAt > 0n) {
+          // Details (payer, transaction) come from that single block's logs.
+          let match = null;
+          try {
+            const logs = await rpc("eth_getLogs", [{
+              address: network.PAYLINK_ADDRESS,
+              fromBlock: hexQuantity(paidAt),
+              toBlock: hexQuantity(paidAt),
+              topics: [PAID_TOPIC, currentRequest.id]
+            }]);
+            for (const log of Array.isArray(logs) ? logs : []) {
+              try {
+                const payment = parseLog(log);
+                if (
+                  payment.recipient.toLowerCase() === currentRequest.to.toLowerCase() &&
+                  payment.amount === currentRequest.wei &&
+                  payment.memo === currentRequest.memo
+                ) {
+                  match = payment;
+                  break;
+                }
+              } catch (error) {
+                console.warn("Ignored malformed payment log.", error);
+              }
+            }
+          } catch (error) {
+            console.warn("Could not read payment details.", error);
+          }
+          renderPaid(match || { payer: "", amount: currentRequest.wei, transactionHash: "", blockNumber: paidAt });
+          return true;
+        }
+
+        setMessage(chainStatus, "Not paid yet.", "info");
+        return false;
+      } catch (error) {
+        setMessage(chainStatus, "Could not check status: " + readableError(error), "error");
+        return false;
+      } finally {
+        statusButton.disabled = false;
+      }
+    }
+
+    async function ensureWalletNetwork(provider) {
+      try {
+        await provider.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: network.chainIdHex }]
+        });
+      } catch (error) {
+        const unknownChain = error && (error.code === 4902 ||
+          (error.data && error.data.originalError && error.data.originalError.code === 4902));
+        if (!unknownChain) {
+          throw error;
+        }
+
+        await provider.request({
+          method: "wallet_addEthereumChain",
+          params: [{
+            chainId: network.chainIdHex,
+            chainName: network.name,
+            nativeCurrency: {
+              name: "USDC",
+              symbol: "USDC",
+              decimals: 18
+            },
+            rpcUrls: [network.rpc],
+            blockExplorerUrls: [network.explorer]
+          }]
+        });
+
+        await provider.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: network.chainIdHex }]
+        });
+      }
+    }
+
+    async function pollTransaction(transactionHash) {
+      const token = ++pollToken;
+      const deadline = Date.now() + 120000;
+
+      while (Date.now() < deadline && token === pollToken) {
+        try {
+          const receipt = await rpc("eth_getTransactionReceipt", [transactionHash]);
+          if (receipt) {
+            if (receipt.status === "0x0") {
+              setMessage(paymentStatus, "The transaction failed on the blockchain.", "error");
+              return;
+            }
+
+            const paid = await checkStatus({ quiet: true });
+            if (paid) {
+              setMessage(paymentStatus, "Transaction confirmed and payment verified.", "success");
+            } else {
+              setMessage(paymentStatus, "Transaction confirmed, but no matching payment was found.", "notice");
+            }
+            return;
+          }
+        } catch (error) {
+          setMessage(paymentStatus, "Transaction submitted. Status polling error: " + readableError(error), "error");
+        }
+
+        await new Promise(function (resolve) {
+          window.setTimeout(resolve, 4000);
+        });
+      }
+
+      if (token === pollToken) {
+        setMessage(paymentStatus, "Transaction submitted, but confirmation was not seen within 2 minutes. Use Check status to try again.", "notice");
+      }
+    }
+
+    async function payRequest() {
+      if (!currentRequest) {
+        return;
+      }
+      if (network.PAYLINK_ADDRESS.toLowerCase() === ZERO_ADDRESS) {
+        setMessage(paymentStatus, "The contract is not deployed on this network yet.", "notice");
+        return;
+      }
+      if (!window.ethereum || typeof window.ethereum.request !== "function") {
+        setMessage(paymentStatus, "A browser wallet that supports custom networks is needed to pay this request.", "error");
+        return;
+      }
+
+      payButton.disabled = true;
+      setMessage(paymentStatus, "Connecting to your wallet…", "info");
+
+      try {
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        if (!Array.isArray(accounts) || !accounts[0] || !isAddress(accounts[0])) {
+          throw new Error("The wallet did not provide a valid account.");
+        }
+
+        await ensureWalletNetwork(window.ethereum);
+        setMessage(paymentStatus, "Confirm the transaction in your wallet…", "info");
+
+        const transactionHash = await window.ethereum.request({
+          method: "eth_sendTransaction",
+          params: [{
+            from: accounts[0],
+            to: network.PAYLINK_ADDRESS,
+            value: hexQuantity(currentRequest.wei),
+            data: encodePay(currentRequest.id, currentRequest.to, currentRequest.memo)
+          }]
+        });
+
+        if (!/^0x[0-9a-fA-F]{64}$/.test(transactionHash)) {
+          throw new Error("The wallet returned an invalid transaction hash.");
+        }
+
+        paymentStatus.textContent = "";
+        paymentStatus.className = "message success";
+        paymentStatus.appendChild(document.createTextNode("Transaction submitted. "));
+        const transactionLink = document.createElement("a");
+        transactionLink.href = network.explorer + "/tx/" + transactionHash;
+        transactionLink.target = "_blank";
+        transactionLink.rel = "noopener noreferrer";
+        transactionLink.textContent = "View transaction";
+        paymentStatus.appendChild(transactionLink);
+
+        pollTransaction(transactionHash);
+      } catch (error) {
+        setMessage(paymentStatus, readableError(error), "error");
+      } finally {
+        payButton.disabled = false;
+      }
+    }
+
+    function updateMemoCounter() {
+      const count = utf8Length(memoInput.value);
+      memoCounter.textContent = count + " / 140 UTF-8 bytes";
+      memoInput.setCustomValidity(count > 140 ? "The memo exceeds 140 UTF-8 bytes." : "");
+    }
+
+    function showCreateMode() {
+      document.title = "Create a request — PayLink on Arc";
+      createSection.hidden = false;
+      requestSection.hidden = true;
+
+      createForm.addEventListener("submit", function (event) {
+        event.preventDefault();
+        linkResult.hidden = true;
+        setMessage(createStatus, "", "");
+
+        const recipient = recipientInput.value.trim();
+        const rawAmount = amountInput.value.trim();
+        const memo = memoInput.value;
+
+        if (!isNonZeroAddress(recipient)) {
+          setMessage(createStatus, "Enter a valid, non-zero recipient address.", "error");
+          recipientInput.focus();
+          return;
+        }
+
+        let wei;
+        try {
+          wei = amountToWei(rawAmount);
+        } catch (error) {
+          setMessage(createStatus, readableError(error), "error");
+          amountInput.focus();
+          return;
+        }
+
+        if (wei <= 0n) {
+          setMessage(createStatus, "The amount must be greater than zero.", "error");
+          amountInput.focus();
+          return;
+        }
+
+        if (utf8Length(memo) > 140) {
+          setMessage(createStatus, "The memo exceeds 140 UTF-8 bytes.", "error");
+          memoInput.focus();
+          return;
+        }
+
+        const requestUrl = new URL(window.location.href);
+        requestUrl.search = "";
+        requestUrl.hash = "";
+        requestUrl.searchParams.set("id", randomId());
+        requestUrl.searchParams.set("to", recipient);
+        requestUrl.searchParams.set("amt", normalizeAmount(rawAmount));
+        requestUrl.searchParams.set("memo", memo);
+        if (networkKey === "testnet") {
+          requestUrl.searchParams.set("net", "testnet");
+        }
+
+        generatedLink.value = requestUrl.toString();
+        openRequest.href = requestUrl.toString();
+        linkResult.hidden = false;
+        setMessage(createStatus, "Payment request created.", "success");
+        generatedLink.focus();
+        generatedLink.select();
+      });
+
+      copyButton.addEventListener("click", async function () {
+        const value = generatedLink.value;
+        try {
+          if (!navigator.clipboard || typeof navigator.clipboard.writeText !== "function") {
+            throw new Error("Clipboard API unavailable.");
+          }
+          await navigator.clipboard.writeText(value);
+          setMessage(copyStatus, "Link copied.", "success");
+        } catch (error) {
+          generatedLink.focus();
+          generatedLink.select();
+          setMessage(copyStatus, "Automatic copying was unavailable. The link has been selected; copy it manually.", "notice");
+        }
+      });
+
+      memoInput.addEventListener("input", updateMemoCounter);
+      updateMemoCounter();
+    }
+
+    function requestError(message) {
+      document.title = "Invalid request — PayLink on Arc";
+      createSection.hidden = true;
+      requestSection.hidden = false;
+      requestContent.hidden = true;
+      invalidRequest.hidden = false;
+      invalidMessage.textContent = message;
+
+      const url = new URL(window.location.href);
+      url.search = "";
+      url.hash = "";
+      if (networkKey === "testnet") {
+        url.searchParams.set("net", "testnet");
+      }
+      createLink.href = url.toString();
+    }
+
+    function showRequestMode() {
+      createSection.hidden = true;
+      requestSection.hidden = false;
+
+      const id = params.get("id");
+      const to = params.get("to");
+      const amt = params.get("amt");
+      const memo = params.get("memo") || "";
+
+      if (!isId(id || "")) {
+        requestError("This payment request has an invalid ID.");
+        return;
+      }
+      if (!isNonZeroAddress(to || "")) {
+        requestError("This payment request has an invalid recipient address.");
+        return;
+      }
+
+      let wei;
+      try {
+        wei = amountToWei(amt || "");
+      } catch (error) {
+        requestError("This payment request has an invalid amount.");
+        return;
+      }
+
+      if (utf8Length(memo) > 140) {
+        requestError("This payment request has a memo longer than 140 UTF-8 bytes.");
+        return;
+      }
+
+      currentRequest = {
+        id: id,
+        to: to,
+        amount: normalizeAmount(amt),
+        wei: wei,
+        memo: memo
+      };
+
+      document.title = currentRequest.amount + " USDC request — PayLink on Arc";
+      requestContent.hidden = false;
+      invalidRequest.hidden = true;
+      requestAmount.textContent = currentRequest.amount + " USDC";
+      requestRecipient.textContent = currentRequest.to;
+      requestMemo.textContent = currentRequest.memo || "No memo";
+      requestNetwork.textContent = network.name;
+
+      if (network.PAYLINK_ADDRESS.toLowerCase() === ZERO_ADDRESS) {
+        deploymentNotice.hidden = false;
+        deploymentNotice.textContent = "Contract not deployed on this network yet.";
+        payButton.disabled = true;
+      }
+
+      payButton.addEventListener("click", payRequest);
+      statusButton.addEventListener("click", function () {
+        checkStatus();
+      });
+
+      checkStatus();
+    }
+
+    function selfTest() {
+      function assert(condition, label) {
+        if (!condition) {
+          throw new Error("Self-test failed: " + label);
+        }
+      }
+
+      assert(amountToWei("1") === 1000000000000000000n, "amountToWei 1");
+      assert(amountToWei("12.5") === 12500000000000000000n, "amountToWei 12.5");
+      assert(amountToWei("0.000001") === 1000000000000n, "amountToWei 0.000001");
+
+      const idZero = "0x" + "00".repeat(32);
+      const idOne = "0x" + "11".repeat(32);
+      const addressOne = "0x1111111111111111111111111111111111111111";
+      const addressTwo = "0x2222222222222222222222222222222222222222";
+      const recipientWordOne = "0".repeat(24) + "1".repeat(40);
+      const recipientWordTwo = "0".repeat(24) + "2".repeat(40);
+      const offset = "0".repeat(62) + "60";
+      const emptyLength = "0".repeat(64);
+      const oneLength = "0".repeat(63) + "1";
+      const twoLength = "0".repeat(63) + "2";
+
+      const expectedEmpty =
+        PAY_SELECTOR +
+        "0".repeat(64) +
+        recipientWordOne +
+        offset +
+        emptyLength;
+
+      const expectedA =
+        PAY_SELECTOR +
+        "1".repeat(64) +
+        recipientWordTwo +
+        offset +
+        oneLength +
+        "61" + "0".repeat(62);
+
+      const expectedCent =
+        PAY_SELECTOR +
+        "0".repeat(64) +
+        recipientWordOne +
+        offset +
+        twoLength +
+        "c2a2" + "0".repeat(60);
+
+      assert(encodePay(idZero, addressOne, "") === expectedEmpty, "encodePay empty memo");
+      assert(encodePay(idOne, addressTwo, "a") === expectedA, "encodePay ASCII memo");
+      assert(encodePay(idZero, addressOne, "¢") === expectedCent, "encodePay UTF-8 memo");
+      assert(encodePaidBlock(idOne, addressTwo, 12500000000000000000n, "INV-1") ===
+        "0x3a733368" + "1".repeat(64) + recipientWordTwo + "0".repeat(48) + "ad78ebc5ac620000" +
+        "0".repeat(62) + "80" + "0".repeat(63) + "5" + "494e562d31" + "0".repeat(54), "encodePaidBlock (checked against cast)");
+      console.log("PayLink self-tests passed.");
+    }
+
+    repoLink.href = REPO_URL;
+    contractLink.href = network.explorer + "/address/" + network.PAYLINK_ADDRESS;
+    contractLink.textContent = "Contract " + network.PAYLINK_ADDRESS;
+    contractLink.target = "_blank";
+    contractLink.rel = "noopener noreferrer";
+
+    if (params.get("debug") === "1") {
+      selfTest();
+    }
+
+    if (params.has("id")) {
+      showRequestMode();
+    } else {
+      showCreateMode();
+    }
+  </script>
+</body>
+</html>

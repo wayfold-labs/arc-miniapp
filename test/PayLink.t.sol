@@ -65,4 +65,37 @@ contract PayLinkTest is Test {
         link.pay{value: 1 ether}(bytes32(0), payable(address(r)), "");
         assertEq(payer.balance, 1_000 ether);
     }
+
+    function test_paidBlockRecordsFirstExactPayment() public {
+        bytes32 id = keccak256("invoice-2");
+        assertEq(link.paidBlock(id, recipient, 5 ether, "A-1"), 0);
+        vm.roll(100);
+        vm.prank(payer);
+        link.pay{value: 5 ether}(id, recipient, "A-1");
+        assertEq(link.paidBlock(id, recipient, 5 ether, "A-1"), 100);
+        vm.roll(200);
+        vm.prank(payer);
+        link.pay{value: 5 ether}(id, recipient, "A-1");
+        assertEq(link.paidBlock(id, recipient, 5 ether, "A-1"), 100, "keeps the first payment");
+    }
+
+    function test_paidBlockIgnoresMismatchedPayments() public {
+        bytes32 id = keccak256("invoice-3");
+        vm.roll(300);
+        vm.startPrank(payer);
+        link.pay{value: 1 wei}(id, recipient, "A-1");            // wrong amount
+        link.pay{value: 5 ether}(id, payable(address(0xCAFE)), "A-1"); // wrong recipient
+        link.pay{value: 5 ether}(id, recipient, "A-2");          // wrong memo
+        vm.stopPrank();
+        assertEq(link.paidBlock(id, recipient, 5 ether, "A-1"), 0);
+    }
+
+    function test_revertedPaymentLeavesNoRecord() public {
+        Rejecter r = new Rejecter();
+        vm.roll(400);
+        vm.prank(payer);
+        vm.expectRevert(PayLink.TransferFailed.selector);
+        link.pay{value: 1 ether}(bytes32(uint256(9)), payable(address(r)), "");
+        assertEq(link.paidBlock(bytes32(uint256(9)), address(r), 1 ether, ""), 0);
+    }
 }
