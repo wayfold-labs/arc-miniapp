@@ -1,33 +1,41 @@
-# PayLink v2 — 60-second walkthrough
+# PayLink — judge walkthrough
 
-## Create → pay → verify
+## Wallet-free path first (about 20 seconds)
 
-**0–15 seconds — Create.** Open the static app, keep Arc mainnet selected, choose **EURC (€)** or **USDC ($)**, and
-enter a recipient, amount and invoice reference. Click **Create link**. The random request ID and every request field
-are in the link; no backend or account exists. Share the link or scan its inline QR code.
+1. Open `<PAID_LINK>`. It is a real Arc mainnet request; no wallet or account is needed.
+2. The browser calls PayLink's `paidBlock`, reads only that exact block, validates the matching `Paid` event and shows
+   payer, recipient, amount, timestamp, block and transaction links.
+3. Download the JSON or CSV receipt. Downloads are enabled only because the event matched every request field.
 
-**15–40 seconds — Pay.** Open the link and connect an injected wallet. PayLink switches to Arc, verifies the selected
-Circle token's on-chain EIP-712 domain, and asks for a one-hour `ReceiveWithAuthorization` signature. Confirm one Arc
-transaction. By default it goes through Arc Memo, so the same invoice reference is recorded there while PayLink pulls
-the exact authorized amount and immediately forwards it to the business.
+This demonstrates the core public-verification experience directly from chain state, without a backend or indexer.
 
-**40–60 seconds — Verify.** As soon as the receipt arrives, the page displays **Paid** with payer, timestamp, block and
-transaction links. Reload it in another browser: the app makes one `paidBlock` call, then reads `Paid` only from that
-single block. Download the self-contained CSV or JSON receipt.
+## Paying path (about 60 seconds)
+
+1. Open https://wayfold-labs.github.io/arc-miniapp/ and create a EURC or USDC request. Confirm the recipient: links
+   are not signed, so an edited link can point somewhere else.
+2. Open the generated link and connect an injected wallet on Arc mainnet. The app checks that PayLink has code and
+   that its `USDC()`/`EURC()` match the app's token addresses, then verifies the Circle token's on-chain EIP-712 domain
+   before requesting a signature.
+3. Sign the one-hour `ReceiveWithAuthorization`. EOAs use the `v/r/s` PayLink overload; smart-contract wallets that
+   return another signature shape use the bytes overload and Circle's ERC-1271 validation.
+4. Confirm one transaction. Arc Memo normally records an EOA payer's reference and calls PayLink. Smart-contract
+   wallets use the direct PayLink call because Memo requires `msg.sender == tx.origin`. For EOAs, a direct fallback
+   appears only if Memo fails and the exact direct call successfully simulates.
+5. Watch the page confirm the receipt and retry its state/event lookup. Reload the link to verify the same payment and
+   download a receipt. A second payment of the exact request is rejected.
 
 ## What is Arc-specific
 
-- Two Circle currencies on one chain: euro requests use EURC and dollar requests use USDC.
-- USDC is Arc's native gas token, including for EURC payments.
-- Circle FiatToken v2 EIP-3009 authorizations make approval plus payment a single payer transaction.
-- Arc Memo wraps the payment and anchors the invoice reference at the protocol layer.
-- Fast confirmation supports an instant paid experience without a hosted indexer.
-- Exact-block status reads avoid Arc public RPC's 9,999-block `eth_getLogs` limit.
+- EURC and USDC invoices share one chain, and USDC pays gas.
+- Circle FiatToken v2.2 EIP-3009 makes authorization plus payment a single transaction and supports ERC-1271 wallets.
+- Arc Memo can anchor an EOA invoice reference at the protocol layer. PayLink's `Paid` event is authoritative; the Memo
+  record is only a convenience and can be missing if another account submits the authorization directly.
+- Fast confirmation supports immediate browser verification.
+- Exact-block reads avoid the public RPC's bounded log-history scans.
 
-## Reproduce
+## Reproduce locally
 
 ```bash
-# Foundry (https://getfoundry.sh) on PATH
 forge build
 forge test
 
@@ -35,11 +43,16 @@ CHROME=/path/to/chrome-or-chromium \
 ./e2e.sh
 ```
 
-Add `?debug=1` to the app URL to run its browser self-test vectors for ABI encoding, exact-request hashing, EIP-712,
-six-decimal parsing, link round trips, Keccak and QR encoding.
+Add `?debug=1` to the app URL for a visible pass/fail list covering ABI selectors, the shared Solidity/JavaScript
+request-key vector, EIP-712, exact decimal parsing, link ordering, Keccak and QR vectors.
 
 ## Roadmap
 
-- Cross-chain invoice payment and settlement through CCTP.
-- Recurring invoice authorizations with clear payer controls.
-- Richer accounting exports and integrations while keeping the payment path non-custodial.
+- CCTP settlement: let Arc users pay an invoice from supported remote chains while the merchant receives Arc USDC.
+- Reusable merchant profiles: publish signed recipient/currency templates so payers can authenticate businesses before
+  opening an invoice link.
+- Accounting integrations: export verified Arc receipts directly into bookkeeping tools while retaining the static,
+  non-custodial payment path.
+- Recurring billing: add payer-controlled, capped authorization schedules for subscriptions and repeat invoices.
+- Multi-signature receipts: attach merchant acknowledgements to on-chain payment evidence for stronger dispute and
+  reconciliation workflows.

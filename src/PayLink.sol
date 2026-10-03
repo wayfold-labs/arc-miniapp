@@ -15,14 +15,37 @@ interface IFiatToken {
         bytes32 r,
         bytes32 s
     ) external;
+
+    function receiveWithAuthorization(
+        address from,
+        address to,
+        uint256 value,
+        uint256 validAfter,
+        uint256 validBefore,
+        bytes32 nonce,
+        bytes calldata signature
+    ) external;
 }
 
 /// @title PayLink: one-transaction EURC and USDC payment requests on Arc
 /// @notice Pulls an exact, wallet-authorized payment and forwards it immediately. The request lives
-///         in the link; only the block of its first payment is retained by this contract.
+///         in the link; only its payment block is retained by this contract. Anyone may submit the
+///         payer's signed authorization, but it can only pay the exact recipient and amount bound
+///         to that request. Tokens sent directly to this contract are unrecoverable.
 /// @dev Compatible with Circle FiatToken v2 EIP-3009 receiveWithAuthorization implementations.
 contract PayLink {
     uint256 public constant MAX_REF_BYTES = 140;
+    bytes4 private constant RECEIVE_VRS_SELECTOR = 0xef55bec6;
+    bytes4 private constant RECEIVE_BYTES_SELECTOR = 0x88b7ab63;
+
+    struct Payment {
+        bytes32 id;
+        address token;
+        address payer;
+        address recipient;
+        uint256 amount;
+        string ref;
+    }
 
     /// @notice The only accepted USDC token.
     address public immutable USDC;
@@ -38,15 +61,19 @@ contract PayLink {
 
     error UnknownToken();
     error ZeroToken();
+    error NoCode();
     error ZeroRecipient();
+    error InvalidRecipient();
     error ZeroAmount();
     error RefTooLong();
+    error AlreadyPaid();
     error TokenTransferFailed();
 
     /// @param usdc Arc's USDC ERC-20 interface address.
     /// @param eurc Arc's EURC token address.
     constructor(address usdc, address eurc) {
         if (usdc == address(0) || eurc == address(0)) revert ZeroToken();
+        if (usdc.code.length == 0 || eurc.code.length == 0) revert NoCode();
         USDC = usdc;
         EURC = eurc;
     }
@@ -73,19 +100,58 @@ contract PayLink {
         bytes32 r,
         bytes32 s
     ) external {
-        if (token != USDC && token != EURC) revert UnknownToken();
-        if (recipient == address(0)) revert ZeroRecipient();
-        if (amount == 0) revert ZeroAmount();
-        if (bytes(ref).length > MAX_REF_BYTES) revert RefTooLong();
-
+        Payment memory payment = Payment(id, token, payer, recipient, amount, ref);
         bytes32 key = _requestKey(id, token, recipient, amount, ref);
-        IFiatToken(token).receiveWithAuthorization(payer, address(this), amount, validAfter, validBefore, key, v, r, s);
-        _safeTransfer(token, recipient, amount);
+        bytes memory authorizationCall = abi.encodeWithSelector(
+            RECEIVE_VRS_SELECTOR, payer, address(this), amount, validAfter, validBefore, key, v, r, s
+        );
+        _payWithAuthorization(payment, key, authorizationCall);
+    }
 
-        if (_paidBlock[key] == 0) _paidBlock[key] = block.number;
+    /// @notice Pays a request using the bytes signature overload supported by smart-contract wallets.
+    /// @dev Anyone may submit the payer's signature, but its nonce binds it to this exact request.
+    function payWithAuthorization(
+        bytes32 id,
+        address token,
+        address payer,
+        address recipient,
+        uint256 amount,
+        string calldata ref,
+        uint256 validAfter,
+        uint256 validBefore,
+        bytes calldata signature
+    ) external {
+        Payment memory payment = Payment(id, token, payer, recipient, amount, ref);
+        bytes32 key = _requestKey(id, token, recipient, amount, ref);
+        bytes memory authorizationCall = abi.encodeWithSelector(
+            RECEIVE_BYTES_SELECTOR, payer, address(this), amount, validAfter, validBefore, key, signature
+        );
+        _payWithAuthorization(payment, key, authorizationCall);
+    }
+
+    function _payWithAuthorization(Payment memory payment, bytes32 key, bytes memory authorizationCall) private {
+        if (payment.token != USDC && payment.token != EURC) revert UnknownToken();
+        if (payment.recipient == address(0)) revert ZeroRecipient();
+        if (payment.recipient == address(this) || payment.recipient == USDC || payment.recipient == EURC) {
+            revert InvalidRecipient();
+        }
+        if (payment.amount == 0) revert ZeroAmount();
+        if (bytes(payment.ref).length > MAX_REF_BYTES) revert RefTooLong();
+
+        if (_paidBlock[key] != 0) revert AlreadyPaid();
+        _paidBlock[key] = block.number;
+
+        (bool ok, bytes memory result) = payment.token.call(authorizationCall);
+        if (!ok) {
+            assembly ("memory-safe") {
+                revert(add(result, 32), mload(result))
+            }
+        }
+        _safeTransfer(payment.token, payment.recipient, payment.amount);
+
         // The only possible external callers above are the two immutable Circle token contracts.
         // forge-lint: disable-next-line(reentrancy-events)
-        emit Paid(id, payer, recipient, token, amount, ref);
+        emit Paid(payment.id, payment.payer, payment.recipient, payment.token, payment.amount, payment.ref);
     }
 
     /// @notice Returns the first block in which this exact request was paid, or zero if unpaid.
@@ -97,7 +163,7 @@ contract PayLink {
         return _paidBlock[_requestKey(id, token, recipient, amount, ref)];
     }
 
-    function _requestKey(bytes32 id, address token, address recipient, uint256 amount, string calldata ref)
+    function _requestKey(bytes32 id, address token, address recipient, uint256 amount, string memory ref)
         private
         pure
         returns (bytes32)

@@ -37,15 +37,22 @@ TIMESTAMP=$(cast block latest --field timestamp --rpc-url "$RPC")
 VALID_BEFORE=$((TIMESTAMP + 3600))
 TYPED_DATA=$(printf '{"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},{"name":"chainId","type":"uint256"},{"name":"verifyingContract","type":"address"}],"ReceiveWithAuthorization":[{"name":"from","type":"address"},{"name":"to","type":"address"},{"name":"value","type":"uint256"},{"name":"validAfter","type":"uint256"},{"name":"validBefore","type":"uint256"},{"name":"nonce","type":"bytes32"}]},"primaryType":"ReceiveWithAuthorization","domain":{"name":"EURC","version":"2","chainId":5042002,"verifyingContract":"%s"},"message":{"from":"%s","to":"%s","value":"%s","validAfter":"0","validBefore":"%s","nonce":"%s"}}' "$TOKEN" "$PAYER" "$PAYLINK" "$AMOUNT" "$VALID_BEFORE" "$NONCE")
 SIGNATURE=$(cast wallet sign --data "$TYPED_DATA" --private-key "$KEY")
-R=0x${SIGNATURE:2:64}
-S=0x${SIGNATURE:66:64}
-V_HEX=${SIGNATURE:130:2}
-V=$((16#$V_HEX))
-if ((V < 27)); then V=$((V + 27)); fi
 
-cast send "$PAYLINK" 'payWithAuthorization(bytes32,address,address,address,uint256,string,uint256,uint256,uint8,bytes32,bytes32)' "$ID" "$TOKEN" "$PAYER" "$RECIPIENT" "$AMOUNT" "$REF" 0 "$VALID_BEFORE" "$V" "$R" "$S" --rpc-url "$RPC" --private-key "$KEY" >/dev/null
+cast send "$PAYLINK" 'payWithAuthorization(bytes32,address,address,address,uint256,string,uint256,uint256,bytes)' "$ID" "$TOKEN" "$PAYER" "$RECIPIENT" "$AMOUNT" "$REF" 0 "$VALID_BEFORE" "$SIGNATURE" --rpc-url "$RPC" --private-key "$KEY" >/dev/null
 PAID_BLOCK=$(cast call "$PAYLINK" 'paidBlock(bytes32,address,address,uint256,string)(uint256)' "$ID" "$TOKEN" "$RECIPIENT" "$AMOUNT" "$REF" --rpc-url "$RPC")
 echo "paidBlock=$PAID_BLOCK"
+[ -n "$PAID_BLOCK" ] && [ "$PAID_BLOCK" != "0" ] && [ "$PAID_BLOCK" != "0x0" ] || {
+  echo "paidBlock must be non-zero" >&2
+  exit 1
+}
+if DUPLICATE_OUTPUT=$(cast call "$PAYLINK" 'payWithAuthorization(bytes32,address,address,address,uint256,string,uint256,uint256,bytes)' "$ID" "$TOKEN" "$PAYER" "$RECIPIENT" "$AMOUNT" "$REF" 0 "$VALID_BEFORE" "$SIGNATURE" --from "$PAYER" --rpc-url "$RPC" 2>&1); then
+  echo "duplicate payment unexpectedly succeeded" >&2
+  exit 1
+fi
+case "${DUPLICATE_OUTPUT,,}" in
+  *d70a0e30*|*alreadypaid*) ;;
+  *) echo "duplicate payment did not fail with AlreadyPaid: $DUPLICATE_OUTPUT" >&2; exit 1 ;;
+esac
 
 python3 - "$WORKTREE/docs/index.html" "$TEMP_DIR/index.html" "$PAYLINK" "$TOKEN" <<'PY'
 import sys
@@ -65,14 +72,39 @@ PY
 python3 -m http.server 18099 --bind 127.0.0.1 --directory "$TEMP_DIR" >/dev/null 2>&1 &
 sleep 1
 
-CHROME_ARGS=(--headless --no-first-run --no-default-browser-check --disable-extensions --no-sandbox --user-data-dir="$TEMP_DIR/profile" --virtual-time-budget=8000 --dump-dom)
+CHROME_ARGS=(--headless --lang=en-US --no-first-run --no-default-browser-check --disable-extensions --no-sandbox --user-data-dir="$TEMP_DIR/profile" --virtual-time-budget=8000 --dump-dom)
 show_status() {
   python3 -c 'import html,re,sys; s=sys.stdin.read(); m=re.search(r"<div id=\"chain-status\"[^>]*>(.*?)</div>",s,re.S); t=re.sub(r"<[^>]+>"," ",m.group(1)) if m else "NO STATUS"; print(" ".join(html.unescape(t).split())[:300])'
 }
+show_debug() {
+  python3 -c 'import html,re,sys; s=sys.stdin.read(); m=re.search(r"<div id=\"debug-results\"[^>]*>(.*?)</div>",s,re.S); print(html.unescape(m.group(1)).strip() if m else "NO DEBUG RESULTS")'
+}
 BASE="http://127.0.0.1:18099/index.html?net=testnet&cur=EURC&id=$ID&to=$RECIPIENT&ref=$REF"
-echo -n "paid request   -> "
-LD_LIBRARY_PATH="$CHROME_LIB${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" "$CHROME_BIN" "${CHROME_ARGS[@]}" "$BASE&amt=12.5" 2>/dev/null | show_status
-echo -n "other amount   -> "
-LD_LIBRARY_PATH="$CHROME_LIB${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" "$CHROME_BIN" "${CHROME_ARGS[@]}" "$BASE&amt=12" 2>/dev/null | show_status
-echo -n "self-test      -> "
-LD_LIBRARY_PATH="$CHROME_LIB${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" "$CHROME_BIN" --headless --no-sandbox --enable-logging=stderr --v=0 --virtual-time-budget=5000 "http://127.0.0.1:18099/index.html?debug=1" 2>&1 >/dev/null | grep -o -E 'PayLink self-tests passed|Self-test failed[^\"]*' | head -1
+PAID_DOM=$(LD_LIBRARY_PATH="$CHROME_LIB${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" "$CHROME_BIN" "${CHROME_ARGS[@]}" "$BASE&amt=12.5" 2>/dev/null)
+PAID_STATUS=$(printf '%s' "$PAID_DOM" | show_status)
+echo "paid request   -> $PAID_STATUS"
+[[ "$PAID_STATUS" == *"Paid"* && "${PAID_STATUS,,}" == *"${PAYER,,}"* ]] || {
+  echo "paid page did not show Paid with payer" >&2
+  exit 1
+}
+
+UNPAID_DOM=$(LD_LIBRARY_PATH="$CHROME_LIB${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" "$CHROME_BIN" "${CHROME_ARGS[@]}" "$BASE&amt=12" 2>/dev/null)
+UNPAID_STATUS=$(printf '%s' "$UNPAID_DOM" | show_status)
+echo "other amount   -> $UNPAID_STATUS"
+[[ "$UNPAID_STATUS" == *"Not paid yet"* ]] || {
+  echo "other-amount page did not show Not paid yet" >&2
+  exit 1
+}
+
+DEBUG_DOM=$(LD_LIBRARY_PATH="$CHROME_LIB${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" "$CHROME_BIN" "${CHROME_ARGS[@]}" \
+  "http://127.0.0.1:18099/index.html?debug=1" 2>/dev/null)
+DEBUG_STATUS=$(printf '%s' "$DEBUG_DOM" | show_debug)
+grep -q 'PayLink self-tests passed' <<<"$DEBUG_STATUS" || {
+  echo "debug page did not report PayLink self-tests passed" >&2
+  exit 1
+}
+if grep -q '^FAIL ' <<<"$DEBUG_STATUS"; then
+  echo "debug page reported a FAIL line" >&2
+  exit 1
+fi
+echo "self-test      -> PayLink self-tests passed"

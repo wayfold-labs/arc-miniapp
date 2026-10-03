@@ -309,7 +309,8 @@ button:disabled {
 
 .mono {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: .92rem
+  font-size: .92rem;
+  white-space: pre-line
 }
 
 .qr-wrap {
@@ -368,6 +369,7 @@ footer {
     </select>
   </header>
   <main>
+    <div id="test-banner" class="message notice" hidden data-i18n="testBanner">Test network — no real value</div>
     <section id="create-section" class="card" hidden>
       <h2 data-i18n="createTitle">Create a payment request</h2>
       <form id="create-form" novalidate>
@@ -376,7 +378,6 @@ footer {
             <label for="network" data-i18n="network">Network</label>
             <select id="network">
               <option value="mainnet">Arc Mainnet</option>
-              <option value="testnet">Arc Testnet</option>
             </select>
           </div>
           <div class="field">
@@ -396,6 +397,7 @@ footer {
           <label for="amount" id="amount-label">Amount in USDC</label>
           <input id="amount" inputmode="decimal" autocomplete="off" placeholder="125.00" required>
           <div class="help" data-i18n="amountHelp">Positive amount, with at most 6 decimal places.</div>
+          <div id="amount-preview" class="help" aria-live="polite"></div>
         </div>
         <div class="field">
           <label for="reference">
@@ -435,8 +437,10 @@ footer {
           <div><dt data-i18n="reference">Reference</dt><dd id="request-reference"></dd></div>
           <div><dt data-i18n="network">Network</dt><dd id="request-network"></dd></div>
         </dl>
+        <p class="warning" data-i18n="recipientWarning">Check this address with whoever sent you the link. Payment links are not signed.</p>
         <p class="warning" data-i18n="gasNote">Gas is paid in USDC. A EURC payer needs a few cents of USDC for gas.</p>
         <div id="deployment-notice" class="message notice" hidden></div>
+        <div id="wallet-notice" class="message notice" hidden></div>
         <div class="actions" style="margin-top:1.15rem">
           <button id="pay-button" type="button" data-i18n="pay">Pay with wallet</button>
           <button id="direct-button" type="button" class="secondary" hidden data-i18n="payDirect">Send directly</button>
@@ -456,6 +460,10 @@ footer {
         </div>
       </div>
     </section>
+    <section id="debug-section" class="card" hidden>
+      <h2>Self-test</h2>
+      <div id="debug-results" class="message mono"></div>
+    </section>
     <section class="card">
       <h2 data-i18n="howTitle">How it works</h2>
       <ol>
@@ -469,7 +477,7 @@ footer {
     </section>
   </main>
   <footer>
-    <a id="repo-link" href="./">Open source</a>
+    <a id="repo-link" href="https://github.com/wayfold-labs/arc-miniapp">Open source</a>
     <a id="contract-link" href="#"></a>
     <span data-i18n="disclaimer">Not affiliated with Circle or Arc.</span>
   </footer>
@@ -513,6 +521,7 @@ const T = {
     currency: "Currency",
     recipient: "Recipient address",
     recipientHelp: "The Arc address that receives the full payment.",
+    recipientWarning: "Check this address with whoever sent you the link. Payment links are not signed.",
     amount: "Amount",
     amountHelp: "Positive amount, with at most 6 decimal places.",
     reference: "Reference",
@@ -537,9 +546,13 @@ const T = {
     disclaimer: "Not affiliated with Circle or Arc.",
     noRef: "No reference",
     notDeployed: "Contract not deployed on this network yet.",
+    testBanner: "Test network — no real value",
     invalidId: "This payment request has an invalid ID.",
     invalidAddress: "This payment request has an invalid recipient address.",
     invalidAmount: "This payment request has an invalid amount.",
+    noThousands: "Enter the amount without thousands separators.",
+    interpretedAmount: "Interpreted amount: {amount}",
+    unsupportedNetwork: "This request is for a network this page does not support.",
     invalidCurrency: "This payment request has an invalid currency.",
     invalidRef: "The reference exceeds 140 UTF-8 bytes.",
     created: "Payment request created.",
@@ -548,6 +561,8 @@ const T = {
     checking: "Checking the blockchain…",
     unpaid: "Not paid yet.",
     paid: "Paid",
+    alreadyPaid: "This request is already paid.",
+    statePaid: "Paid (proven by contract state; transaction details unavailable)",
     payer: "Payer",
     block: "Block",
     time: "Time",
@@ -561,10 +576,15 @@ const T = {
     submitted: "Transaction submitted.",
     confirmed: "Transaction confirmed and payment verified.",
     failed: "The transaction failed on the blockchain.",
+    completedElsewhere: "Paid — completed by another submission.",
+    receiptTimeout: "No transaction receipt was found after 2 minutes. Check the transaction in the explorer.",
     noMatch: "Transaction confirmed, but no matching payment was found.",
     walletNeeded: "An injected EIP-1193 wallet is needed.",
     rejected: "The request was rejected in the wallet.",
     memoFailed: "Arc Memo wrapping failed. You can send the same authorized payment directly to PayLink.",
+    smartWalletDirect: "This smart-contract wallet must pay PayLink directly because Arc Memo only accepts transactions from EOAs.",
+    directFailed: "The direct payment simulation also failed:",
+    contractMismatch: "PayLink is missing or its configured token addresses do not match this request.",
     domainMismatch: "The token's EIP-712 domain does not match its on-chain DOMAIN_SEPARATOR.",
     qrLong: "This link is too long for a version 10 QR code; copy it instead.",
     receipt: "Receipt downloaded."
@@ -576,6 +596,7 @@ const T = {
     currency: "Moneda",
     recipient: "Dirección del destinatario",
     recipientHelp: "La dirección de Arc que recibirá el pago completo.",
+    recipientWarning: "Comprueba esta dirección con quien te envió el enlace. Los enlaces de pago no están firmados.",
     amount: "Importe",
     amountHelp: "Importe positivo, con un máximo de 6 decimales.",
     reference: "Referencia",
@@ -600,9 +621,13 @@ const T = {
     disclaimer: "Sin afiliación con Circle ni Arc.",
     noRef: "Sin referencia",
     notDeployed: "El contrato aún no está desplegado en esta red.",
+    testBanner: "Red de pruebas — sin valor real",
     invalidId: "El identificador de la solicitud no es válido.",
     invalidAddress: "La dirección del destinatario no es válida.",
     invalidAmount: "El importe de la solicitud no es válido.",
+    noThousands: "Introduce el importe sin separadores de miles.",
+    interpretedAmount: "Importe interpretado: {amount}",
+    unsupportedNetwork: "Esta solicitud corresponde a una red que esta página no admite.",
     invalidCurrency: "La moneda de la solicitud no es válida.",
     invalidRef: "La referencia supera los 140 bytes UTF-8.",
     created: "Solicitud de pago creada.",
@@ -611,6 +636,8 @@ const T = {
     checking: "Consultando la blockchain…",
     unpaid: "Aún no pagado.",
     paid: "Pagado",
+    alreadyPaid: "Esta solicitud ya está pagada.",
+    statePaid: "Pagado (demostrado por el estado del contrato; detalles de la transacción no disponibles)",
     payer: "Pagador",
     block: "Bloque",
     time: "Hora",
@@ -624,10 +651,15 @@ const T = {
     submitted: "Transacción enviada.",
     confirmed: "Transacción confirmada y pago verificado.",
     failed: "La transacción ha fallado en la blockchain.",
+    completedElsewhere: "Pagado — completado por otro envío.",
+    receiptTimeout: "No se encontró el recibo de la transacción tras 2 minutos. Comprueba la transacción en el explorador.",
     noMatch: "La transacción se confirmó, pero no se encontró el pago.",
     walletNeeded: "Se necesita una cartera EIP-1193 inyectada.",
     rejected: "La solicitud se rechazó en la cartera.",
     memoFailed: "Falló el envoltorio de Arc Memo. Puedes enviar el mismo pago autorizado directamente a PayLink.",
+    smartWalletDirect: "Esta cartera de contrato inteligente debe pagar directamente a PayLink porque Arc Memo solo acepta transacciones de EOA.",
+    directFailed: "La simulación del pago directo también falló:",
+    contractMismatch: "PayLink no existe o sus direcciones de token configuradas no coinciden con esta solicitud.",
     domainMismatch: "El dominio EIP-712 del token no coincide con DOMAIN_SEPARATOR en cadena.",
     qrLong: "El enlace es demasiado largo para un QR versión 10; cópialo.",
     receipt: "Recibo descargado."
@@ -640,11 +672,15 @@ const E = new TextEncoder(),
   ZERO = "0x" + "0".repeat(40);
 const SEL = {
   pay: "9030ea09",
+  payBytes: "b7fd0945",
   paid: "969d7b90",
   memo: "c3b2c4f8",
   name: "06fdde03",
   version: "54fd4d50",
-  domain: "3644e515"
+  domain: "3644e515",
+  usdc: "89a30271",
+  eurc: "aabfa37d",
+  receiveBytes: "88b7ab63"
 };
 const PAID_TOPIC = "0xe5c6828a8317f19aa46564dedf37db443786f258439d044102ae7df6dec98f26";
 const $ = id => document.getElementById(id),
@@ -653,7 +689,9 @@ let lang = (navigator.language || "en").toLowerCase().startsWith("es") ? "es" : 
   request = null,
   receipt = null,
   pending = null,
-  pollId = 0;
+  pollId = 0,
+  paymentInFlight = false,
+  requestPaid = false;
 const tr = k => T[lang][k] || T.en[k] || k;
 
 function translate() {
@@ -661,6 +699,7 @@ function translate() {
   $("language").value = lang;
   document.querySelectorAll("[data-i18n]").forEach(x => x.textContent = tr(x.dataset.i18n));
   updateAmountLabel();
+  if (!$("wallet-notice").hidden) $("wallet-notice").textContent = tr("smartWalletDirect");
   if (request) renderRequest();
 }
 
@@ -708,7 +747,14 @@ function dynamicBytes(value) {
 }
 
 function isAddress(x) {
-  return /^0x[0-9a-f]{40}$/i.test(x)
+  if (!/^0x[0-9a-f]{40}$/i.test(x)) return false;
+  const body = x.slice(2);
+  if (body === body.toLowerCase() || body === body.toUpperCase()) return true;
+  const hash = hex(keccak(E.encode(body.toLowerCase())));
+  for (let i = 0; i < 40; i++) {
+    if (/[a-f]/i.test(body[i]) && (parseInt(hash[i], 16) >= 8) !== (body[i] === body[i].toUpperCase())) return false
+  }
+  return true
 }
 
 function isNonZero(x) {
@@ -720,28 +766,49 @@ function isId(x) {
 }
 
 function parseAmount(s) {
-  if (typeof s !== "string" || !/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(s)) throw Error(tr("invalidAmount"));
+  if (typeof s !== "string") throw Error(tr("invalidAmount"));
+  s = s.replace(",", ".");
+  if (!/^(?:0|[1-9]\d*)(?:\.\d{1,6})?$/.test(s)) throw Error(tr("invalidAmount"));
   const [a, b = ""] = s.split("."), v = BigInt(a) * 1000000n + BigInt(b.padEnd(6, "0"));
-  if (v <= 0n) throw Error(tr("invalidAmount"));
+  if (v <= 0n || v > 1000000000000000n) throw Error(tr("invalidAmount"));
   return v
 }
 
+function parseCreateAmount(s) {
+  if (/^[1-9]\d{0,2}[.,]\d{3}$/.test(s)) throw Error(tr("noThousands"));
+  return parseAmount(s)
+}
+
+function createAmountRejected(s) {
+  try {
+    parseCreateAmount(s);
+    return false
+  } catch (e) {
+    return true
+  }
+}
+
 function normalized(s) {
+  s = s.replace(",", ".");
   const [a, b = ""] = s.split("."), f = b.replace(/0+$/, "");
   return BigInt(a).toString() + (f ? "." + f : "")
 }
 
 function amountText(v, c) {
   const whole = v / 1000000n,
-    frac = (v % 1000000n).toString().padStart(6, "0").replace(/0+$/, "");
-  const n = Number(whole) + Number(frac ? "0." + frac : 0);
-  return new Intl.NumberFormat(lang === "es" ? "es-ES" : "en-US", {
-    style: "currency",
-    // Intl accepts fiat codes, while the UI exposes their stablecoin symbols.
-    currency: c === "EURC" ? "EUR" : "USD",
-    minimumFractionDigits: frac.length ? Math.min(2, frac.length) : 2,
-    maximumFractionDigits: 6
-  }).format(n)
+    rawFrac = (v % 1000000n).toString().padStart(6, "0").replace(/0+$/, ""),
+    frac = rawFrac.padEnd(2, "0"),
+    thousands = lang === "es" ? "." : ",",
+    decimal = lang === "es" ? "," : ".",
+    grouped = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, thousands),
+    value = grouped + decimal + frac;
+  return c === "EURC" && lang === "es" ? value + " €" : (c === "EURC" ? "€" : "$") + value
+}
+
+function invalidRecipient(to, net) {
+  if (!isNonZero(to)) return true;
+  const value = to.toLowerCase();
+  return value === net.payLink.toLowerCase() || Object.values(net.tokens).some(token => value === token.toLowerCase())
 }
 
 function utf8Length(s) {
@@ -820,6 +887,14 @@ function encodePay(q, from, validAfter, validBefore, v, r, s) {
   const tail = dynamicBytes(q.ref);
   return "0x" + SEL.pay + word(q.id) + addressWord(q.token) + addressWord(from) + addressWord(q.to) + word(q.units) +
     word(352) + word(validAfter) + word(validBefore) + word(v) + word(r) + word(s) + tail
+}
+
+function encodePayBytes(q, from, validAfter, validBefore, signature) {
+  const refTail = dynamicBytes(q.ref),
+    signatureTail = dynamicBytes(bytes(signature));
+  return "0x" + SEL.payBytes + word(q.id) + addressWord(q.token) + addressWord(from) + addressWord(q.to) +
+    word(q.units) + word(288) + word(validAfter) + word(validBefore) + word(288 + refTail.length / 2) + refTail +
+    signatureTail
 }
 
 function encodePaid(q) {
@@ -922,6 +997,27 @@ async function tokenIdentity(provider, q) {
   }
 }
 
+async function verifyPayLink(provider, q) {
+  const code = await provider.request({
+    method: "eth_getCode",
+    params: [q.net.payLink, "latest"]
+  });
+  if (!code || code === "0x") throw Error(tr("contractMismatch"));
+  const readAddress = async selector => {
+    const result = await provider.request({
+      method: "eth_call",
+      params: [{
+        to: q.net.payLink,
+        data: "0x" + selector
+      }, "latest"]
+    });
+    return "0x" + result.slice(-40)
+  };
+  const [usdc, eurc] = await Promise.all([readAddress(SEL.usdc), readAddress(SEL.eurc)]);
+  if (usdc.toLowerCase() !== q.net.tokens.USDC.toLowerCase() ||
+    eurc.toLowerCase() !== q.net.tokens.EURC.toLowerCase()) throw Error(tr("contractMismatch"))
+}
+
 function splitSignature(sig) {
   if (!/^0x[0-9a-f]{130}$/i.test(sig)) throw Error("Invalid signature");
   let v = parseInt(sig.slice(130, 132), 16);
@@ -933,6 +1029,7 @@ function splitSignature(sig) {
   }
 }
 async function preparePayment() {
+  if (await checkStatus(true)) return null;
   if (!window.ethereum || typeof ethereum.request !== "function") throw Error(tr("walletNeeded"));
   msg($("payment-status"), tr("connect"), "info");
   const accounts = await ethereum.request({
@@ -941,7 +1038,15 @@ async function preparePayment() {
   const from = accounts && accounts[0];
   if (!isAddress(from)) throw Error("Invalid wallet account");
   await ensureNetwork(ethereum, request.net);
+  const payerCode = await ethereum.request({
+      method: "eth_getCode",
+      params: [from, "latest"]
+    }),
+    directOnly = !!payerCode && payerCode !== "0x" && !payerCode.toLowerCase().startsWith("0xef0100");
+  $("wallet-notice").hidden = !directOnly;
+  $("wallet-notice").textContent = directOnly ? tr("smartWalletDirect") : "";
   msg($("payment-status"), tr("tokenCheck"), "info");
+  await verifyPayLink(ethereum, request);
   const identity = await tokenIdentity(ethereum, request),
     validAfter = 0,
     validBefore = Math.floor(Date.now() / 1000) + 3600,
@@ -999,17 +1104,32 @@ async function preparePayment() {
   };
   msg($("payment-status"), tr("sign"), "info");
   const signature = await ethereum.request({
-      method: "eth_signTypedData_v4",
-      params: [from, JSON.stringify(typed)]
-    }),
-    parts = splitSignature(signature);
+    method: "eth_signTypedData_v4",
+    params: [from, JSON.stringify(typed)]
+  });
+  if (!/^0x[0-9a-f]+$/i.test(signature) || signature.length % 2) throw Error("Invalid signature");
+  const call = signature.length === 132 ? (() => {
+    const parts = splitSignature(signature);
+    return encodePay(request, from, validAfter, validBefore, parts.v, parts.r, parts.s)
+  })() : encodePayBytes(request, from, validAfter, validBefore, signature);
   return {
     from,
-    call: encodePay(request, from, validAfter, validBefore, parts.v, parts.r, parts.s)
+    call,
+    validBefore,
+    chainId: request.net.chainIdHex.toLowerCase(),
+    directOnly
   }
 }
 async function sendPrepared(direct) {
-  if (!pending) pending = await preparePayment();
+  if (pending) {
+    const chainId = String(await ethereum.request({method: "eth_chainId"})).toLowerCase();
+    if (pending.validBefore - Math.floor(Date.now() / 1000) <= 60 || chainId !== pending.chainId) pending = null
+  }
+  if (!pending) {
+    pending = await preparePayment();
+    if (!pending) return
+  }
+  direct = direct || pending.directOnly;
   msg($("payment-status"), tr("confirm"), "info");
   const data = direct ? pending.call : encodeMemo(request.net.payLink, pending.call, request.id, request.ref),
     to = direct ? request.net.payLink : request.net.memo;
@@ -1025,27 +1145,75 @@ async function sendPrepared(direct) {
     if (!/^0x[0-9a-f]{64}$/i.test(tx)) throw Error("Invalid transaction hash");
     $("direct-button").hidden = true;
     showSubmitted(tx);
-    pollReceipt(tx, !direct)
+    await pollReceipt(tx, !direct)
   } catch (e) {
+    if (await completedAfterFailure()) return;
     if (!direct && !rejected(e)) {
-      $("direct-button").hidden = false;
-      msg($("payment-status"), tr("memoFailed") + " " + readError(e), "notice");
+      await offerDirect(e, false);
       return
     }
     throw e
   }
 }
 async function pay(direct) {
-  $("pay-button").disabled = true;
-  $("direct-button").disabled = true;
+  if (requestPaid || paymentInFlight) return;
+  paymentInFlight = true;
+  updatePayButtons();
   try {
+    if (await checkStatus(true)) return;
     await sendPrepared(direct)
   } catch (e) {
-    msg($("payment-status"), readError(e), "error");
+    if (!(await completedAfterFailure())) msg($("payment-status"), readError(e), "error");
     if (rejected(e)) pending = null
   } finally {
-    $("pay-button").disabled = false;
-    $("direct-button").disabled = false
+    paymentInFlight = false;
+    updatePayButtons()
+  }
+}
+
+async function completedAfterFailure() {
+  if (!(await checkStatus(true))) return false;
+  msg($("payment-status"), tr("completedElsewhere"), "success");
+  return true
+}
+
+function updatePayButtons() {
+  $("pay-button").disabled = paymentInFlight || requestPaid;
+  $("direct-button").disabled = paymentInFlight || requestPaid
+}
+
+async function offerDirect(memoError, confirmedMemoFailure) {
+  try {
+    if (!confirmedMemoFailure) {
+      const memoCall = encodeMemo(request.net.payLink, pending.call, request.id, request.ref);
+      try {
+        await ethereum.request({
+          method: "eth_call",
+          params: [{from: pending.from, to: request.net.memo, data: memoCall}, "latest"]
+        });
+        if (!(await completedAfterFailure())) msg($("payment-status"), readError(memoError), "error");
+        return
+      } catch (error) {
+        console.warn(error)
+      }
+      if (await completedAfterFailure()) return;
+    }
+    await ethereum.request({
+      method: "eth_call",
+      params: [{
+        from: pending.from,
+        to: request.net.payLink,
+        data: pending.call
+      }, "latest"]
+    });
+    if (await completedAfterFailure()) return;
+    $("direct-button").hidden = false;
+    msg($("payment-status"), tr("memoFailed") + " " + readError(memoError), "notice")
+  } catch (directError) {
+    $("direct-button").hidden = true;
+    if (!(await completedAfterFailure())) {
+      msg($("payment-status"), tr("directFailed") + " " + readError(directError), "error")
+    }
   }
 }
 
@@ -1055,6 +1223,14 @@ function showSubmitted(tx) {
   box.className = "message success";
   box.append(link(request.net.explorer + "/tx/" + tx, tr("viewTx")))
 }
+async function retryStatus(attempts) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    if (await checkStatus(true)) return true;
+    if (attempt + 1 < attempts) await new Promise(resolve => setTimeout(resolve, 500 + attempt * 550))
+  }
+  return false
+}
+
 async function pollReceipt(tx, wrapped) {
   const id = ++pollId,
     until = Date.now() + 120000;
@@ -1063,13 +1239,14 @@ async function pollReceipt(tx, wrapped) {
       const r = await rpc(request.net, "eth_getTransactionReceipt", [tx]);
       if (r) {
         if (r.status === "0x0") {
-          if (wrapped) {
-            $("direct-button").hidden = false;
-            msg($("payment-status"), tr("memoFailed"), "notice")
+          if (await retryStatus(3)) {
+            msg($("payment-status"), tr("completedElsewhere"), "success");
+          } else if (wrapped) {
+            await offerDirect(Error(tr("failed")), true)
           } else msg($("payment-status"), tr("failed"), "error");
           return
         }
-        const ok = await checkStatus(true);
+        const ok = await retryStatus(10);
         msg($("payment-status"), ok ? tr("confirmed") : tr("noMatch"), ok ? "success" : "notice");
         return
       }
@@ -1077,6 +1254,10 @@ async function pollReceipt(tx, wrapped) {
       console.warn(e)
     }
     await new Promise(r => setTimeout(r, 2500))
+  }
+  if (id === pollId) {
+    showSubmitted(tx);
+    $("payment-status").insertBefore(document.createTextNode(tr("receiptTimeout") + " "), $("payment-status").firstChild)
   }
 }
 
@@ -1133,12 +1314,20 @@ async function checkStatus(quiet = false) {
       msg($("chain-status"), tr("unpaid"), "info");
       return false
     }
-    const logs = await rpc(request.net, "eth_getLogs", [{
-      address: request.net.payLink,
-      fromBlock: quantity(paid),
-      toBlock: quantity(paid),
-      topics: [PAID_TOPIC, request.id]
-    }]);
+    requestPaid = true;
+    updatePayButtons();
+    msg($("payment-status"), tr("alreadyPaid"), "success");
+    let logs = [];
+    try {
+      logs = await rpc(request.net, "eth_getLogs", [{
+        address: request.net.payLink,
+        fromBlock: quantity(paid),
+        toBlock: quantity(paid),
+        topics: [PAID_TOPIC, request.id]
+      }])
+    } catch (e) {
+      console.warn(e)
+    }
     let found = null;
     for (const l of logs) {
       try {
@@ -1152,21 +1341,39 @@ async function checkStatus(quiet = false) {
         console.warn(e)
       }
     }
-    const block = await rpc(request.net, "eth_getBlockByNumber", [quantity(paid), false]),
-      time = block ? new Date(Number(BigInt(block.timestamp)) * 1000) : null;
-    renderPaid(found || {
-      payer: "",
-      amount: request.units,
-      tx: "",
-      block: paid
-    }, time);
+    if (!found) {
+      renderStatePaid(paid);
+      return true
+    }
+    let time = null;
+    try {
+      const block = await rpc(request.net, "eth_getBlockByNumber", [quantity(paid), false]);
+      time = block ? new Date(Number(BigInt(block.timestamp)) * 1000) : null
+    } catch (e) {
+      console.warn(e)
+    }
+    renderPaid(found, time);
     return true
   } catch (e) {
-    msg($("chain-status"), readError(e), "error");
+    if (!quiet) msg($("chain-status"), readError(e), "error");
     return false
   } finally {
     $("status-button").disabled = false
   }
+}
+
+function renderStatePaid(block) {
+  const box = $("chain-status");
+  box.textContent = "";
+  box.className = "message success";
+  const h = document.createElement("strong");
+  h.textContent = tr("statePaid");
+  box.append(h);
+  line(box, tr("amount"), amountText(request.units, request.currency));
+  line(box, tr("block"), block.toString());
+  box.append(link(request.net.explorer + "/block/" + block, tr("viewBlock")));
+  receipt = null;
+  $("receipt-actions").hidden = true
 }
 
 function renderPaid(p, time) {
@@ -1490,20 +1697,53 @@ function makeUrl(values) {
   const u = new URL(location.href);
   u.search = "";
   u.hash = "";
+  u.searchParams.set("ref", values.ref);
   u.searchParams.set("id", values.id);
   u.searchParams.set("to", values.to);
   u.searchParams.set("amt", values.amount);
   u.searchParams.set("cur", values.currency);
-  u.searchParams.set("ref", values.ref);
   if (values.network === "testnet") u.searchParams.set("net", "testnet");
   return u
+}
+
+function testnetEnabled() {
+  return params.get("net") === "testnet" && isNonZero(CONFIG.testnet.payLink)
+}
+
+function supportedNetworkKey() {
+  const requested = params.get("net");
+  if (!requested || requested === "mainnet") return "mainnet";
+  if (requested === "testnet" && isNonZero(CONFIG.testnet.payLink)) return "testnet";
+  return null
 }
 
 function showCreate() {
   $("create-section").hidden = false;
   $("request-section").hidden = true;
-  $("network").value = params.get("net") === "testnet" ? "testnet" : "mainnet";
+  if (testnetEnabled()) {
+    const option = document.createElement("option");
+    option.value = "testnet";
+    option.textContent = "Arc Testnet";
+    $("network").append(option);
+    $("network").value = "testnet";
+    $("test-banner").hidden = false
+  } else $("network").value = "mainnet";
   $("currency").addEventListener("change", updateAmountLabel);
+  const updateAmountPreview = () => {
+    const raw = $("amount").value.trim();
+    if (!raw) {
+      $("amount-preview").textContent = "";
+      return
+    }
+    try {
+      const units = parseCreateAmount(raw);
+      $("amount-preview").textContent = tr("interpretedAmount").replace("{amount}", amountText(units, $("currency").value))
+    } catch (error) {
+      $("amount-preview").textContent = readError(error)
+    }
+  };
+  $("amount").addEventListener("input", updateAmountPreview);
+  $("currency").addEventListener("change", updateAmountPreview);
   updateAmountLabel();
   $("reference").addEventListener("input", () => {
     const n = utf8Length($("reference").value);
@@ -1518,8 +1758,9 @@ function showCreate() {
         raw = $("amount").value.trim(),
         ref = $("reference").value,
         currency = $("currency").value;
-      if (!isNonZero(to)) throw Error(tr("invalidAddress"));
-      parseAmount(raw);
+      const net = CONFIG[$("network").value];
+      if (invalidRecipient(to, net)) throw Error(tr("invalidAddress"));
+      const units = parseCreateAmount(raw);
       if (utf8Length(ref) > 140) throw Error(tr("invalidRef"));
       const u = makeUrl({
         id: randomId(),
@@ -1531,7 +1772,8 @@ function showCreate() {
       });
       $("generated-link").value = $("open-request").href = u.toString();
       $("link-result").hidden = false;
-      msg($("create-status"), tr("created"), "success");
+      msg($("create-status"), tr("created") + " " + tr("interpretedAmount").replace("{amount}",
+        amountText(units, currency)), "success");
       try {
         drawQr(u.toString());
         $("qr-status").textContent = ""
@@ -1563,15 +1805,16 @@ function invalid(text) {
 }
 
 function loadRequest() {
-  const key = params.get("net") === "testnet" ? "testnet" : "mainnet",
-    net = CONFIG[key],
+  const key = supportedNetworkKey();
+  if (!key) return invalid(tr("unsupportedNetwork"));
+  const net = CONFIG[key],
     id = params.get("id") || "",
     to = params.get("to") || "",
     amount = params.get("amt") || "",
     currency = params.get("cur") || "USDC",
     ref = params.get("ref") || params.get("memo") || "";
   if (!isId(id)) return invalid(tr("invalidId"));
-  if (!isNonZero(to)) return invalid(tr("invalidAddress"));
+  if (invalidRecipient(to, net)) return invalid(tr("invalidAddress"));
   if (!["USDC", "EURC"].includes(currency)) return invalid(tr("invalidCurrency"));
   let units;
   try {
@@ -1594,6 +1837,7 @@ function loadRequest() {
   $("create-section").hidden = true;
   $("request-section").hidden = false;
   $("request-content").hidden = false;
+  $("test-banner").hidden = key !== "testnet";
   renderRequest();
   if (net.payLink.toLowerCase() === ZERO) {
     $("deployment-notice").hidden = false;
@@ -1616,28 +1860,13 @@ function renderRequest() {
 }
 
 function selfTest() {
-  const assert = (x, n) => {
-    if (!x) throw Error("Self-test failed: " + n)
-  };
-  assert(kh(new Uint8Array()) === "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470", "keccak empty");
-  assert(parseAmount("1") === 1000000n && parseAmount("12.5") === 12500000n && parseAmount("0.000001") === 1n,
-    "6-decimal amounts");
   const q = {
     id: "0x" + "11".repeat(32),
     token: "0x" + "22".repeat(20),
     to: "0x" + "33".repeat(20),
     units: 12500000n,
     ref: "INV-1"
-  };
-  const enc = encodePaid(q);
-  assert(enc.startsWith("0x969d7b90" + "11".repeat(32) + "0".repeat(24) + "22".repeat(20)), "paidBlock ABI");
-  assert(encodePay(q, "0x" + "44".repeat(20), 0, 99, 27, "0x" + "55".repeat(32), "0x" + "66".repeat(32)).slice(0,
-    10) === "0x9030ea09", "pay ABI");
-  assert(requestKey(q) === "0x968673589daf1dd67c13c22673b29dac35f7f42cfb1bd35bf6523c7c1428e4dd",
-    "request key ABI vector");
-  assert(domainHash("USDC", "2", 5042002, "0x3600000000000000000000000000000000000000") ===
-    "0x361191522483d32a83e70ae7183b4b9629442c13a78bc9921d6f707911c8c6b0", "EIP-712 known vector");
-  const u = makeUrl({
+  }, u = makeUrl({
       id: q.id,
       to: q.to,
       amount: "12.5",
@@ -1645,16 +1874,49 @@ function selfTest() {
       ref: "Factura 7",
       network: "testnet"
     }),
-    round = new URL(u);
-  assert(round.searchParams.get("cur") === "EURC" && round.searchParams.get("ref") === "Factura 7" && round.searchParams
-    .get("id") === q.id, "link round trip");
-  const qa = qrMatrix("A"),
-    qh = qrMatrix("HELLO WORLD");
-  const qaDark = qa.flat().filter(Boolean).length;
-  const qhDark = qh.flat().filter(Boolean).length;
-  assert(qa.length === 21 && qaDark === 212, `QR A known vector (${qaDark})`);
-  assert(qh.length === 21 && qhDark === 228, `QR HELLO WORLD known vector (${qhDark})`);
-  console.log("PayLink self-tests passed.")
+    round = new URL(u),
+    tests = [
+      ["Keccak empty vector", () => kh(new Uint8Array()) === "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"],
+      ["Exact 6-decimal amounts and decimal comma", () => parseAmount("1") === 1000000n &&
+        parseAmount("12,5") === 12500000n && parseAmount("0.000001") === 1n],
+      ["Ambiguous thousands separators rejected on create", () => createAmountRejected("1,000") &&
+        createAmountRejected("1.000")],
+      ["EIP-55 mixed-case addresses", () => isAddress("0x5294E9927c3306DcBaDb03fe70b92e01cCede505") &&
+        !isAddress("0x5294e9927c3306DcBaDb03fe70b92e01cCede505") &&
+        isAddress("0x5294e9927c3306dcbadb03fe70b92e01ccede505")],
+      ["paidBlock ABI selector", () => encodePaid(q).startsWith("0x969d7b90" + "11".repeat(32) +
+        "0".repeat(24) + "22".repeat(20))],
+      ["EOA pay selector 0x9030ea09", () => encodePay(q, "0x" + "44".repeat(20), 0, 99, 27,
+        "0x" + "55".repeat(32), "0x" + "66".repeat(32)).slice(0, 10) === "0x9030ea09"],
+      ["Bytes pay selector 0xb7fd0945", () => encodePayBytes(q, "0x" + "44".repeat(20), 0, 99,
+        "0xdeadbeef").slice(0, 10) === "0xb7fd0945" && SEL.receiveBytes === "88b7ab63"],
+      ["Shared request-key vector", () => requestKey(q) ===
+        "0x968673589daf1dd67c13c22673b29dac35f7f42cfb1bd35bf6523c7c1428e4dd"],
+      ["EIP-712 domain vector", () => domainHash("USDC", "2", 5042002,
+        "0x3600000000000000000000000000000000000000") ===
+        "0x361191522483d32a83e70ae7183b4b9629442c13a78bc9921d6f707911c8c6b0"],
+      ["Link round trip with reference first", () => round.search.slice(1).startsWith("ref=") &&
+        round.searchParams.get("cur") === "EURC" && round.searchParams.get("ref") === "Factura 7" &&
+        round.searchParams.get("id") === q.id && round.searchParams.get("amt") === "12.5"],
+      ["QR known vectors", () => {
+        const qa = qrMatrix("A"), qh = qrMatrix("HELLO WORLD");
+        return qa.length === 21 && qa.flat().filter(Boolean).length === 212 &&
+          qh.length === 21 && qh.flat().filter(Boolean).length === 228
+      }]
+    ], results = tests.map(([name, test]) => {
+      try {
+        return {name, passed: !!test()}
+      } catch (error) {
+        return {name, passed: false, error: readError(error)}
+      }
+    });
+  $("debug-section").hidden = false;
+  const passed = results.every(result => result.passed);
+  $("debug-results").textContent = (passed ? "PayLink self-tests passed\n" : "") +
+    results.map(result => (result.passed ? "PASS " : "FAIL ") + result.name +
+      (result.error ? ": " + result.error : "")).join("\n");
+  if (passed) console.log("PayLink self-tests passed.");
+  else console.error("Self-test failed: " + results.filter(result => !result.passed).map(result => result.name).join(", "))
 }
 
 $("language").addEventListener("change", e => {
@@ -1664,8 +1926,9 @@ $("language").addEventListener("change", e => {
 $("csv-button").addEventListener("click", () => download("csv"));
 $("json-button").addEventListener("click", () => download("json"));
 translate();
-const active = params.get("net") === "testnet" ? CONFIG.testnet : CONFIG.mainnet;
-$("contract-link").href = active.explorer + "/address/" + active.payLink;
+const active = testnetEnabled() ? CONFIG.testnet : CONFIG.mainnet;
+$("contract-link").href = isNonZero(active.payLink) ?
+  "https://repo.sourcify.dev/" + active.chainId + "/" + active.payLink : "#";
 $("contract-link").textContent = "Contract " + active.payLink;
 $("contract-link").target = "_blank";
 $("contract-link").rel = "noopener noreferrer";
