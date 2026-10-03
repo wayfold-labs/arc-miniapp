@@ -2,7 +2,8 @@
 
 ## Wallet-free path first (about 20 seconds)
 
-1. Open `<PAID_LINK>`. It is a real Arc mainnet request; no wallet or account is needed.
+1. Open [this paid invoice link](https://wayfold-labs.github.io/arc-miniapp/?ref=INV-2026-0001&id=0x96caac3ddf966c9306266c6b7906f5fd700cc1931129e88477027b0095f1c797&to=0x01f0319D07167C7907B248edd9AB9bc93f85aB50&amt=1.25&cur=USDC). It is a real Arc mainnet request (1.25 USDC, `INV-2026-0001`); no
+   wallet or account is needed.
 2. The browser calls PayLink's `paidBlock`, reads only that exact block, validates the matching `Paid` event and shows
    payer, recipient, amount, timestamp, block and transaction links.
 3. Download the JSON or CSV receipt. Downloads are enabled only because the event matched every request field.

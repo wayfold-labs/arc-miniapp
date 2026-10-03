@@ -111,18 +111,18 @@ forge script script/Deploy.s.sol:Deploy --rpc-url "$ARC_RPC" --private-key "$DEP
 | App | https://wayfold-labs.github.io/arc-miniapp/ |
 | Repository | https://github.com/wayfold-labs/arc-miniapp |
 | Arc mainnet chain ID | `5042` |
-| PayLink | [`<CONTRACT_ADDRESS>`](https://explorer.arc.io/address/<CONTRACT_ADDRESS>) |
-| Sourcify | [`<SOURCIFY_URL>`](https://repo.sourcify.dev/5042/<CONTRACT_ADDRESS>) |
-| Deployment transaction | [`<DEPLOY_TX>`](https://explorer.arc.io/tx/<DEPLOY_TX>) |
-| Paid transaction 1 | [`<PAID_TX_1>`](https://explorer.arc.io/tx/<PAID_TX_1>) |
-| Paid transaction 2 | [`<PAID_TX_2>`](https://explorer.arc.io/tx/<PAID_TX_2>) |
-| Browser-verifiable paid link | [`<PAID_LINK>`](<PAID_LINK>) |
+| PayLink | [`0x38DC3E2eD1bE44552f699b2026e542E306A7eE3A`](https://explorer.arc.io/address/0x38DC3E2eD1bE44552f699b2026e542E306A7eE3A) (block 24038802, commit `3c5821c`) |
+| Sourcify | [exact match](https://repo.sourcify.dev/5042/0x38DC3E2eD1bE44552f699b2026e542E306A7eE3A) |
+| Deployment transaction | [`0xf72d28b7…b8d290`](https://explorer.arc.io/tx/0xf72d28b7bca1606debd8bfb11717e0d5560959e0fdc65635360e5b17ccb8d290) |
+| Paid transaction 1 | [`0x872ff020…21d45c`](https://explorer.arc.io/tx/0x872ff020677fe4229412c2d4e0efff7df5341008bec5d11503a17420a121d45c): 1.25 USDC, `INV-2026-0001`, through Arc Memo |
+| Paid transaction 2 | [`0xf8da6c83…512bb6`](https://explorer.arc.io/tx/0xf8da6c83c60b6d70904ed8e2d42f2019a71a7770d23abd9ae59168af28512bb6): 0.80 USDC, `INV-2026-0002`, direct PayLink call |
+| Browser-verifiable paid link | [`INV-2026-0001`](https://wayfold-labs.github.io/arc-miniapp/?ref=INV-2026-0001&id=0x96caac3ddf966c9306266c6b7906f5fd700cc1931129e88477027b0095f1c797&to=0x01f0319D07167C7907B248edd9AB9bc93f85aB50&amt=1.25&cur=USDC) |
 | USDC | `0x3600000000000000000000000000000000000000` |
 | EURC | `0xbEf5f6d51CB62b58e6A8f77868681825C6fe21c1` |
 | Arc Memo | `0x5294E9927c3306DcBaDb03fe70b92e01cCede505` |
 
-Source verification will be published through Sourcify. The Arc explorer verification API is currently behind a
-Cloudflare challenge; see `circlefin/arc-node` issue 425.
+The source is verified on Sourcify (exact match). The Arc explorer verification API is behind a Cloudflare
+challenge (`circlefin/arc-node` issue 425), so the explorer may still show the bytecode as unverified.
 
 ## License
 
